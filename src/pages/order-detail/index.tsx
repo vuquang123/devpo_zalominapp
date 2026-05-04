@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from "react-router-dom";
-import OrderCheckImg from "@/static/order.png";
+import { GITHUB_RAW_BASE } from "@/constants/assets";
+const OrderCheckImg = `${GITHUB_RAW_BASE}/order.png`;
 import { useOrderById } from "@/services/order/order.queries";
 import { Button, Spinner, Text } from "zmp-ui";
 import { copy } from "@/constants/copy";

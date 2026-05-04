@@ -22,7 +22,7 @@ export default function Layout() {
       className={cn("relative flex h-screen w-screen flex-col bg-background")}
     >
       {!(current.handle as any)?.whiteBackground && (
-        <div className="absolute left-0 top-0 h-66 w-full bg-peach-fade"></div>
+        <div className="absolute left-0 top-0 h-66 w-full bg-theme-fade pointer-events-none"></div>
       )}
       {!hideHeader && (
         <Header
@@ -37,7 +37,7 @@ export default function Layout() {
       {!hideFooter && (
         <div className="relative shrink-0">
           <Footer />
-          {!hideCart && <CartFloatButton itemCount={totalItems} />}
+          {/* {!hideCart && <CartFloatButton itemCount={totalItems} />} */}
         </div>
       )}
     </div>

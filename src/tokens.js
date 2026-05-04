@@ -121,7 +121,7 @@ const base = {
 
 const semantic = {
   colors: {
-    primary: "#0B63F6",
+    primary: "#000000",
     background: "#F3F5F8",
     text: {
       primary: base.colors.neutral900,
@@ -136,8 +136,8 @@ const semantic = {
     icon: {
       tertiary: "#6F7071",
     },
-    accent: base.colors.blue500,
-    info: base.colors.blue600,
+    accent: "#1c1c1e",
+    info: base.colors.gray600,
     warning: base.colors.yellow600,
     danger: base.colors.red700,
     components: {
@@ -194,10 +194,10 @@ const semantic = {
     },
   },
   backgroundImage: {
-    "peach-fade": `linear-gradient(
+    "theme-fade": `linear-gradient(
                     180deg,
-                    rgba(255,195,165,0.5) 0%,
-                    rgba(255,195,165,0) 100%
+                    rgba(224,228,232,0.6) 0%,
+                    rgba(243,245,248,0) 100%
                   )
 `,
   },

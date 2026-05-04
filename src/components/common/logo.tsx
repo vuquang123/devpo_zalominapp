@@ -7,7 +7,7 @@ export default function Logo() {
       src={ASSETS.LOGO}
       alt={copy.brand.name}
       draggable={false}
-      className="size-7 rounded-full object-cover"
+      className="h-8 w-auto object-contain"
     />
   );
 }

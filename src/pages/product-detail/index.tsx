@@ -1,8 +1,6 @@
 import NoteInput from "@/components/common/note-input";
-import VariantSelect from "@/components/common/variant-select";
 import { useState, useMemo, useEffect } from "react";
 import CartFloatButton from "@/components/common/cart-float-button";
-import QuantityStepper from "@/components/common/quantity-stepper";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BackIcon } from "@/components/common/vectors";
 import { useProduct } from "@/services/product/product.queries";
@@ -10,24 +8,11 @@ import { useCartStore } from "@/stores/cart.store";
 import { Button, Spinner, Text } from "zmp-ui";
 import { copy } from "@/constants/copy";
 import { formatCurrency } from "@/utils/format";
-
-// Type cho variant selections
-type VariantSelections = {
-  [variantGroupId: string]: {
-    type: "SINGLE" | "MULTIPLE" | "ADJUSTMENT" | "QUANTITY";
-    // For SINGLE: string (option id)
-    // For MULTIPLE: string[] (option ids)
-    // For ADJUSTMENT: { [optionId: string]: number } (option id -> value)
-    // For QUANTITY: { [optionId: string]: number } (option id -> quantity)
-    value: string | string[] | { [key: string]: number };
-  };
-};
+import UnitSelect from "./components/UnitSelect";
+import { openChat } from "zmp-sdk/apis";
 
 export default function ProductDetailPage() {
-  const [quantity, setQuantity] = useState(1);
-  const [variantSelections, setVariantSelections] = useState<VariantSelections>(
-    {},
-  );
+  const [selectedUnitId, setSelectedUnitId] = useState<string>("");
   const [note, setNote] = useState("");
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
@@ -39,259 +24,54 @@ export default function ProductDetailPage() {
   const { data: product, isLoading, isError } = useProduct(id || "");
   const { addToCart, updateCartItem, items, totalItems } = useCartStore();
 
+  const selectedUnit = useMemo(() => {
+    return product?.stockUnits?.find((u) => u.id === selectedUnitId);
+  }, [product, selectedUnitId]);
+
+  useEffect(() => {
+    if (product?.stockUnits?.length && !selectedUnitId && !isEditMode) {
+      setSelectedUnitId(product.stockUnits[0].id);
+    }
+  }, [product, selectedUnitId, isEditMode]);
+
   useEffect(() => {
     if (!isEditMode || !editCartItemId || !product) return;
 
     const cartItem = items.find((item) => item.id === editCartItemId);
     if (!cartItem) return;
 
-    setQuantity(cartItem.quantity);
     setNote(cartItem.note || "");
-
-    const reconstructedSelections: VariantSelections = {};
-
-    cartItem.selectedVariants.forEach((selectedVariant) => {
-      const variantGroup = product.variantGroups.find(
-        (vg) => vg.id === String(selectedVariant.groupId),
-      );
-
-      if (!variantGroup) return;
-
-      const groupId = variantGroup.id;
-
-      switch (variantGroup.type) {
-        case "SINGLE": {
-          const singleOption = variantGroup.options.find(
-            (opt) => opt.id === String(selectedVariant.optionId),
-          );
-          if (singleOption) {
-            reconstructedSelections[groupId] = {
-              type: "SINGLE",
-              value: singleOption.id,
-            };
-          }
-          break;
-        }
-
-        case "MULTIPLE": {
-          if (!reconstructedSelections[groupId]) {
-            reconstructedSelections[groupId] = {
-              type: "MULTIPLE",
-              value: [],
-            };
-          }
-          const multipleOption = variantGroup.options.find(
-            (opt) => opt.id === String(selectedVariant.optionId),
-          );
-          if (multipleOption) {
-            (reconstructedSelections[groupId].value as string[]).push(
-              multipleOption.id,
-            );
-          }
-          break;
-        }
-
-        case "ADJUSTMENT":
-        case "QUANTITY": {
-          if (!reconstructedSelections[groupId]) {
-            reconstructedSelections[groupId] = {
-              type: variantGroup.type,
-              value: {},
-            };
-          }
-          const adjOption = variantGroup.options.find(
-            (opt) => opt.id === String(selectedVariant.optionId),
-          );
-          if (adjOption) {
-            (reconstructedSelections[groupId].value as Record<string, number>)[
-              adjOption.id
-            ] = selectedVariant.quantity || 1;
-          }
-          break;
-        }
-      }
-    });
-
-    setVariantSelections(reconstructedSelections);
+    const unitVariant = cartItem.selectedVariants.find(v => v.groupId === "UNIT_SELECTION");
+    if (unitVariant) {
+      setSelectedUnitId(String(unitVariant.optionId));
+    }
   }, [isEditMode, editCartItemId, items, product]);
 
-  const handleVariantChange = (
-    variantGroupId: string,
-    value: any,
-    type: string,
-  ) => {
-    setVariantSelections((prev) => ({
-      ...prev,
-      [variantGroupId]: {
-        type: type as "SINGLE" | "MULTIPLE" | "ADJUSTMENT" | "QUANTITY",
-        value,
-      },
-    }));
-  };
-
   const totalPrice = useMemo(() => {
-    if (!product) return 0;
-
-    let basePrice = product.price;
-    let variantPrice = 0;
-
-    product.variantGroups.forEach((variantGroup) => {
-      const selection = variantSelections[variantGroup.id];
-      if (!selection) return;
-
-      switch (variantGroup.type) {
-        case "SINGLE":
-          if (typeof selection.value === "string") {
-            const selectedOption = variantGroup.options.find(
-              (opt) => opt.id === selection.value,
-            );
-            if (selectedOption) {
-              variantPrice += selectedOption.extraPrice;
-            }
-          }
-          break;
-
-        case "MULTIPLE":
-          if (Array.isArray(selection.value)) {
-            selection.value.forEach((optionId) => {
-              const selectedOption = variantGroup.options.find(
-                (opt) => opt.id === optionId,
-              );
-              if (selectedOption) {
-                variantPrice += selectedOption.extraPrice;
-              }
-            });
-          }
-          break;
-
-        case "ADJUSTMENT":
-          if (
-            typeof selection.value === "object" &&
-            !Array.isArray(selection.value)
-          ) {
-            Object.entries(selection.value).forEach(
-              ([optionId, adjustmentValue]) => {
-                const selectedOption = variantGroup.options.find(
-                  (opt) => opt.id === optionId,
-                );
-                if (selectedOption && typeof adjustmentValue === "number") {
-                  variantPrice += selectedOption.extraPrice * adjustmentValue;
-                }
-              },
-            );
-          }
-          break;
-
-        case "QUANTITY":
-          if (
-            typeof selection.value === "object" &&
-            !Array.isArray(selection.value)
-          ) {
-            Object.entries(selection.value).forEach(([optionId, qty]) => {
-              const selectedOption = variantGroup.options.find(
-                (opt) => opt.id === optionId,
-              );
-              if (selectedOption && typeof qty === "number") {
-                variantPrice += selectedOption.extraPrice * qty;
-              }
-            });
-          }
-          break;
-      }
-    });
-
-    return (basePrice + variantPrice) * quantity;
-  }, [product, variantSelections, quantity]);
+    if (!selectedUnit) return product?.price || 0;
+    return selectedUnit.price;
+  }, [product, selectedUnit]);
 
   const handleAddToCart = () => {
-    if (!product) return;
+    if (!product || !selectedUnit) return;
 
-    // Convert variantSelections to selectedVariants array
-    const selectedVariants: Array<{
-      groupId: number | string;
-      groupTitle: string;
-      optionId: number | string;
-      optionName: string;
-      extraPrice: number;
-      quantity?: number;
-    }> = [];
-
-    Object.entries(variantSelections).forEach(([groupId, selection]) => {
-      const variantGroup = product.variantGroups.find(
-        (vg) => vg.id === groupId,
-      );
-      if (!variantGroup) return;
-
-      switch (selection.type) {
-        case "SINGLE":
-          if (typeof selection.value === "string") {
-            const option = variantGroup.options.find(
-              (opt) => opt.id === selection.value,
-            );
-            if (option) {
-              selectedVariants.push({
-                groupId: groupId,
-                groupTitle: variantGroup.title,
-                optionId: option.id,
-                optionName: option.name,
-                extraPrice: option.extraPrice,
-              });
-            }
-          }
-          break;
-
-        case "MULTIPLE":
-          if (Array.isArray(selection.value)) {
-            selection.value.forEach((optionId: string) => {
-              const option = variantGroup.options.find(
-                (opt) => opt.id === optionId,
-              );
-              if (option) {
-                selectedVariants.push({
-                  groupId: groupId,
-                  groupTitle: variantGroup.title,
-                  optionId: option.id,
-                  optionName: option.name,
-                  extraPrice: option.extraPrice,
-                });
-              }
-            });
-          }
-          break;
-
-        case "ADJUSTMENT":
-        case "QUANTITY":
-          if (
-            typeof selection.value === "object" &&
-            !Array.isArray(selection.value)
-          ) {
-            Object.entries(selection.value).forEach(([optionId, qty]) => {
-              const option = variantGroup.options.find(
-                (opt) => opt.id === optionId,
-              );
-              if (option && typeof qty === "number" && qty > 0) {
-                selectedVariants.push({
-                  groupId: groupId,
-                  groupTitle: variantGroup.title,
-                  optionId: option.id,
-                  optionName: option.name,
-                  extraPrice: option.extraPrice,
-                  quantity: qty,
-                });
-              }
-            });
-          }
-          break;
+    const selectedVariants = [
+      {
+        groupId: "UNIT_SELECTION",
+        groupTitle: "Chi tiết máy",
+        optionId: selectedUnit.id,
+        optionName: `${selectedUnit.imei} (Pin ${selectedUnit.battery}%)`,
+        extraPrice: 0, 
       }
-    });
+    ];
 
     const cartItemData = {
-      productId: product.id,
+      productId: Number(product.id),
       productName: product.name,
       productImage: product.image,
-      basePrice: product.price,
+      basePrice: selectedUnit.price,
       selectedVariants,
-      quantity,
+      quantity: 1,
       note: note || undefined,
     };
 
@@ -304,13 +84,26 @@ export default function ProductDetailPage() {
     navigate(-1);
   };
 
+  const handleChat = async () => {
+    if (!product) return;
+    try {
+      await openChat({
+        type: "oa",
+        id: "4289073059490896771",
+        message: `Chào shop, mình quan tâm đến sản phẩm: ${product.name}. Tư vấn giúp mình nhé!`,
+      });
+    } catch (error) {
+      console.log("Error opening chat", error);
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
+      <div className="flex h-full items-center justify-center bg-white">
         <div className="text-center">
           <Spinner />
           <Text size="xSmall" className="mt-2 text-text-tertiary">
-            {copy.product.loading}
+            Đang tải dữ liệu thực tế...
           </Text>
         </div>
       </div>
@@ -319,10 +112,12 @@ export default function ProductDetailPage() {
 
   if (isError || !product) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <Text size="xSmall" className="text-text-tertiary">
-          {copy.product.notFound}
-        </Text>
+      <div className="flex h-full items-center justify-center bg-white">
+        <div className="mx-8 text-center">
+          <Text size="large" className="font-bold text-text-primary mb-2">Không tìm thấy máy</Text>
+          <Text size="xSmall" className="text-text-tertiary">{copy.product.notFound}</Text>
+          <Button onClick={() => navigate("/")} className="mt-6" size="small">Quay lại trang chủ</Button>
+        </div>
       </div>
     );
   }
@@ -337,129 +132,85 @@ export default function ProductDetailPage() {
             src={product.image}
             alt={product.name}
           />
-          <div
-            className={`header-margin absolute left-0 top-0 z-10 flex h-12 w-full items-center gap-2 bg-transparent px-4 py-2`}
-          >
+          <div className="header-margin absolute left-0 top-0 z-10 flex h-12 w-full items-center gap-2 bg-transparent px-4 py-2">
             <Button
-              className="w-fit bg-transparent p-1 active:bg-transparent"
+              className="w-fit bg-white/60 p-1 active:bg-white/90 rounded-full"
               type="neutral"
               size="small"
-              fullWidth
               onClick={() => navigate(-1)}
             >
               <BackIcon className="text-text-primary" />
             </Button>
-
-            <div className="text-header_title">Chọn chi tiết</div>
-          </div>
-          <div className="absolute inset-0 h-18 bg-transparent bg-gradient-to-b from-white/50 to-transparent/0 backdrop-blur-[1px]" />
-          <div className="absolute inset-0 h-32 bg-gradient-to-b from-white to-transparent" />
-        </div>
-
-        <div className="bg-white p-4">
-          <div className="flex items-center justify-between">
-            <div className="text-xlarge-m">{product.name}</div>
-            <div className="text-xlarge-m text-primary">
-              {formatCurrency(product.price)}
+            <div className="text-large-sb font-bold text-text-primary bg-white/80 px-4 py-1.5 rounded-full shadow-sm backdrop-blur-sm">
+              Chi tiết thiết bị
             </div>
           </div>
-          <div className="mt-2 text-normal text-text-secondary">
-            {product.description}
-          </div>
         </div>
 
-        <div>
-          {product.variantGroups.map((variantGroup) => {
-            const selection = variantSelections[variantGroup.id];
+        <div className="bg-white p-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <Text className="text-xxlarge-sb font-bold text-text-primary">{product.name}</Text>
+            <Text className="text-xxlarge-sb text-primary">
+              {formatCurrency(totalPrice)}
+            </Text>
+          </div>
+          <Text className="mt-2 text-normal-m text-text-secondary leading-6">
+            Dòng máy {product.name} đang sẵn hàng tại kho. Vui lòng chọn IMEI bên dưới để xem chi tiết tình trạng máy.
+          </Text>
+        </div>
 
-            return (
-              <div
-                key={variantGroup.id}
-                className="m-3 rounded-lg bg-white p-4 pb-0"
-              >
-                <VariantSelect
-                  variantGroup={variantGroup}
-                  selectedOptionId={
-                    variantGroup.type === "SINGLE" &&
-                    typeof selection?.value === "string"
-                      ? selection.value
-                      : undefined
-                  }
-                  selectedOptionIds={
-                    variantGroup.type === "MULTIPLE" &&
-                    Array.isArray(selection?.value)
-                      ? selection.value
-                      : []
-                  }
-                  selectedValues={
-                    (variantGroup.type === "ADJUSTMENT" ||
-                      variantGroup.type === "QUANTITY") &&
-                    typeof selection?.value === "object" &&
-                    !Array.isArray(selection?.value)
-                      ? (selection.value as Record<string, number>)
-                      : {}
-                  }
-                  onSelect={(optionId) => {
-                    if (variantGroup.type === "SINGLE") {
-                      handleVariantChange(
-                        variantGroup.id,
-                        optionId,
-                        variantGroup.type,
-                      );
-                    } else if (variantGroup.type === "MULTIPLE") {
-                      const currentSelection = Array.isArray(selection?.value)
-                        ? selection.value
-                        : [];
-                      const newSelection = currentSelection.includes(optionId)
-                        ? currentSelection.filter((id) => id !== optionId)
-                        : [...currentSelection, optionId];
-                      handleVariantChange(
-                        variantGroup.id,
-                        newSelection,
-                        variantGroup.type,
-                      );
-                    }
-                  }}
-                  onValueChange={(optionId, value) => {
-                    const currentValues =
-                      typeof selection?.value === "object" &&
-                      !Array.isArray(selection?.value)
-                        ? (selection.value as Record<string, number>)
-                        : {};
-                    handleVariantChange(
-                      variantGroup.id,
-                      { ...currentValues, [optionId]: value },
-                      variantGroup.type,
-                    );
-                  }}
-                />
-              </div>
-            );
-          })}
+        <div className="px-4 pb-4">
+          {product.stockUnits && product.stockUnits.length > 0 ? (
+             <UnitSelect 
+               units={product.stockUnits} 
+               selectedUnitId={selectedUnitId} 
+               onSelect={setSelectedUnitId} 
+             />
+          ) : (
+            <div className="mt-12 text-center py-10 bg-white rounded-2xl border border-dashed border-divider01 mx-2">
+              <Text className="text-text-tertiary">Hiện tại tất cả máy này đã tạm hết hàng.</Text>
+            </div>
+          )}
+          
           <NoteInput value={note} onChange={setNote} />
         </div>
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 z-40 border-divider01 border-t bg-white px-4 py-3">
-        <div className="mb-3 flex items-center justify-between">
-          <Text className="text-base font-medium">{copy.common.total}</Text>
-          <Text className="text-lg font-medium text-primary">
-            {formatCurrency(totalPrice)}
-          </Text>
+      <div className="fixed bottom-0 left-0 right-0 z-40 border-divider01 border-t bg-white/95 px-4 py-4 backdrop-blur-lg shadow-[0_-8px_30px_rgba(0,0,0,0.08)]">
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex flex-col">
+            <Text className="text-xxsmall-m uppercase font-bold tracking-widest text-text-tertiary">Tổng thanh toán</Text>
+            <Text className="text-xxlarge-sb font-black text-primary">
+              {formatCurrency(totalPrice)}
+            </Text>
+          </div>
+          <div className="text-right">
+             <Text className="text-large-sb text-blue600 font-bold">
+               {selectedUnit?.imei ? `Đã chọn: ${selectedUnit.imei.slice(-4)}...` : "Chưa chọn IMEI"}
+             </Text>
+             <Text className="text-xxsmall-m text-text-tertiary">
+               Giá bảo hành 12 tháng
+             </Text>
+          </div>
         </div>
         <div className="flex items-center gap-3">
-          <QuantityStepper
-            value={quantity}
-            onDecrease={() => setQuantity(Math.max(1, quantity - 1))}
-            onIncrease={() => setQuantity(quantity + 1)}
-            minValue={1}
-            variant="rounded"
-          />
+          <Button
+            onClick={handleChat}
+            className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 p-0 text-blue600 transition-all active:scale-95 active:bg-blue-100"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+          </Button>
           <Button
             onClick={handleAddToCart}
-            className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary py-3 text-base font-medium text-white active:bg-primary/50"
+            disabled={!selectedUnit}
+            fullWidth
+            className={`flex flex-1 items-center justify-center gap-2 rounded-2xl py-4 text-large-sb font-bold text-white transition-all transform active:scale-95 ${
+              selectedUnit ? "bg-blue500 shadow-md" : "bg-neutral300"
+            }`}
           >
-            {isEditMode ? copy.common.updateCart : copy.common.addToCart}
+            {isEditMode ? "Cập nhật lựa chọn" : "Mua ngay đúng máy này"}
           </Button>
         </div>
         <CartFloatButton itemCount={totalItems} />

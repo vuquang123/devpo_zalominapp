@@ -9,7 +9,12 @@
     "headerColor": "#F7F8FA",
     "actionBarHidden": true,
     "hideIOSSafeAreaBottom": true,
-    "hideAndroidBottomNavigationBar": false
+    "hideAndroidBottomNavigationBar": false,
+    "permissions": [
+      "scope.userInfo",
+      "scope.userPhoneNumber",
+      "scope.userLocation"
+    ]
   },
   "template": {
     "name": "zaui-bistro"

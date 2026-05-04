@@ -1,12 +1,14 @@
 import { Category, SubCategory } from "@/types/category.types";
-import category01 from "@/static/category-01.png";
-import category02 from "@/static/category-02.png";
-import category03 from "@/static/category-03.png";
-import category04 from "@/static/category-04.png";
-import category05 from "@/static/category-05.png";
-import category06 from "@/static/category-06.png";
-import category07 from "@/static/category-07.png";
-import category08 from "@/static/category-08.png";
+import { GITHUB_RAW_BASE } from "@/constants/assets";
+
+const category01 = `${GITHUB_RAW_BASE}/category-01.png`;
+const category02 = `${GITHUB_RAW_BASE}/category-02.png`;
+const category03 = `${GITHUB_RAW_BASE}/category-03.png`;
+const category04 = `${GITHUB_RAW_BASE}/category-04.png`;
+const category05 = `${GITHUB_RAW_BASE}/category-05.png`;
+const category06 = `${GITHUB_RAW_BASE}/category-06.png`;
+const category07 = `${GITHUB_RAW_BASE}/category-07.png`;
+const category08 = `${GITHUB_RAW_BASE}/category-08.png`;
 
 export const mockListOfCategory: Category[] = [
   {

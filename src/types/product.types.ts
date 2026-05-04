@@ -30,14 +30,17 @@ export interface ProductSales {
   specialPrice?: number;
 }
 
+import { StockUnit } from "./stock.types";
+
 export interface Product {
-  id: number;
+  id: string | number;
   name: string;
   description: string;
   price: number;
   image: string;
   variantGroups: VariantGroup[];
   features: string[];
+  stockUnits?: StockUnit[];
 
   newMarked?: boolean;
   sales?: ProductSales;

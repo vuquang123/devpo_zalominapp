@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 export const quickActions = [
@@ -19,8 +19,39 @@ export const actionToneClass: Record<string, { bg: string; fg: string }> = {
   red: { bg: "bg-red100", fg: "text-red500" },
 };
 
+const imsiData = [
+  { network: "US Reseller Flex Policy", imsi: "310120" },
+  { network: "AT&T US-GSM", imsi: "3104101" },
+  { network: "T-Mobile", imsi: "3102600 / 3102605" },
+  { network: "Verizon", imsi: "2040438 / 311480" },
+  { network: "Sprint", imsi: "310120" },
+  { network: "Tracfone | Straight Talk", imsi: "310120 / 311480" },
+  { network: "Xfinity", imsi: "2040438 / 311480" },
+  { network: "US Cellular", imsi: "3115801" },
+  { network: "Cricket", imsi: "3101508" },
+  { network: "MetroPCS", imsi: "3102400", gid1: "6D" },
+  { network: "Japan Softbank", imsi: "4402081", gid1: "00" },
+  { network: "Japan Docomo", imsi: "4401020" },
+  { network: "Japan AU - KDDI", imsi: "44050 / 44051" },
+  { network: "UK O2", imsi: "2341091" },
+  { network: "UK EE / Orange", imsi: "2343301" },
+  { network: "UK Vodafone", imsi: "2341590" },
+  { network: "UK Three", imsi: "2342091" },
+  { network: "Canada Bell / Virgin", imsi: "3026101 / 302610" },
+  { network: "Canada Rogers / Fido", imsi: "3027204 / 3023704" },
+  { network: "Canada Telus / Koodo", imsi: "3022200 / 302220" },
+  { network: "Canada Sasktel", imsi: "302780" },
+  { network: "Canada Freedom", imsi: "302490" },
+  { network: "Korea SK", imsi: "45005" },
+  { network: "Korea KT", imsi: "45008" },
+  { network: "Korea LG", imsi: "45006" },
+  { network: "Viettel", imsi: "45204" },
+  { network: "Vinaphone", imsi: "45202" },
+  { network: "Mobifone", imsi: "45201" },
+];
+
 function QuickActionIcon({ id }: { id: string }) {
-  const className = "h-5 w-5";
+  const className = "h-6 w-6";
 
   switch (id) {
     case "may-lock":
@@ -81,35 +112,78 @@ function QuickActionIcon({ id }: { id: string }) {
 
 const QuickActions: React.FC = () => {
   const navigate = useNavigate();
+  const [showImsi, setShowImsi] = useState(false);
 
   const handleQuickActionClick = (id: string) => {
     if (id === "vong-quay") return navigate("/lucky-wheel");
     if (id === "ho-tro") return navigate("/profile");
-    if (id === "ma-imsi") return navigate("/order");
-    return navigate("/menu");
+    if (id === "ma-imsi") return setShowImsi(true);
+    if (id === "may-lock") return navigate("/menu", { state: { activeFilter: "iPhone Lock" } });
+    if (id === "quoc-te") return navigate("/menu", { state: { activeFilter: "iPhone Quốc tế" } });
+    if (id === "ipad") return navigate("/menu", { state: { activeFilter: "iPad" } });
+    return navigate("/menu", { state: { activeFilter: "Tất cả" } });
   };
 
   return (
-    <div className="mx-3.5 grid grid-cols-3 gap-x-2 gap-y-3">
-      {quickActions.map((item) => {
-        const tone = actionToneClass[item.tone] || actionToneClass.blue;
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => handleQuickActionClick(item.id)}
-            className="flex flex-col items-center gap-1 rounded-xl bg-transparent py-2"
-          >
-            <div
-              className={`flex size-10 items-center justify-center rounded-2xl ${tone.bg} ${tone.fg}`}
+    <>
+      <div className="mx-4 grid grid-cols-4 gap-x-0.5 gap-y-1">
+        {quickActions.map((item) => {
+          const tone = actionToneClass[item.tone] || actionToneClass.blue;
+          return (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => handleQuickActionClick(item.id)}
+              className="flex w-full flex-col items-center gap-1 rounded-xl bg-transparent py-2.5"
             >
-              <QuickActionIcon id={item.id} />
+              <div
+                className={`flex size-11 items-center justify-center rounded-2xl ${tone.bg} ${tone.fg}`}
+              >
+                <QuickActionIcon id={item.id} />
+              </div>
+              <div className="text-xxxsmall-m text-text-tertiary">{item.name}</div>
+            </button>
+          );
+        })}
+      </div>
+
+      {showImsi && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 p-4 pointer-events-auto">
+          <div className="flex h-[85vh] w-full max-w-sm flex-col overflow-hidden rounded-2xl bg-white shadow-xl animate-fade-in">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between border-b border-gray-100 bg-[#f8f9fa] px-4 py-3 shrink-0">
+              <h2 className="text-[13px] font-bold text-black uppercase">Danh sách mã IMSI</h2>
+              <button 
+                onClick={() => setShowImsi(false)} 
+                className="rounded-full bg-gray-200 p-1.5 text-gray-600 active:bg-gray-300"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+                </svg>
+              </button>
             </div>
-            <div className="text-xxxsmall-m text-text-tertiary">{item.name}</div>
-          </button>
-        );
-      })}
-    </div>
+            
+            {/* Table Header fixed */}
+            <div className="grid grid-cols-12 border-b border-gray-200 bg-black text-white px-3 py-2 text-[10px] font-semibold shrink-0">
+              <div className="col-span-5">Nhà mạng</div>
+              <div className="col-span-5 text-center">IMSI</div>
+              <div className="col-span-2 text-center">GID1</div>
+            </div>
+
+            {/* Table Body */}
+            <div className="flex-1 overflow-y-auto">
+              {imsiData.map((row, i) => (
+                <div key={i} className={`grid grid-cols-12 px-3 py-3 text-[10px] border-b border-gray-100 ${i % 2 === 0 ? "bg-white" : "bg-[#fcfcfc]"}`}>
+                  <div className="col-span-5 font-bold text-black flex items-center">{row.network}</div>
+                  <div className="col-span-5 text-center text-gray-700 flex items-center justify-center font-mono tracking-tight">{row.imsi}</div>
+                  <div className="col-span-2 text-center text-gray-700 flex items-center justify-center">{row.gid1 || ""}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

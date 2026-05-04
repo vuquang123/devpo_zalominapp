@@ -15,7 +15,7 @@ const ServiceCards: React.FC = () => {
         </div>
         <button
           type="button"
-          onClick={() => navigate("/menu")}
+          onClick={() => navigate("/menu", { state: { activeFilter: "Tất cả" } })}
           className="text-left"
         >
           <div className="text-xlarge-sb">Danh mục máy</div>

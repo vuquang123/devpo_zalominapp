@@ -1,5 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import checkoutSuccessImg from "@/static/checkout-success.png";
+import { GITHUB_RAW_BASE } from "@/constants/assets";
+const checkoutSuccessImg = `${GITHUB_RAW_BASE}/checkout-success.png`;
 import { Button, Text } from "zmp-ui";
 import { copy } from "@/constants/copy";
 

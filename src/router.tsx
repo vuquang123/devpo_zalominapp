@@ -50,7 +50,6 @@ const router = createBrowserRouter(
           element: withSuspense(ProfilePage),
           handle: {
             whiteBackground: true,
-            hideHeader: true,
             hideCart: true,
           },
         },
